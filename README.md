@@ -4,9 +4,8 @@ PhabPhysics is a production practice and lesson platform for AP Physics 1,
 AP Physics 2, and AP Physics C. It is used by students and teachers at
 [phabphysics.com](https://phabphysics.com).
 
-> This repository is an engineering case study. The application source remains
+> The application source remains
 > private because it is a live product connected to student and teacher data.
-> I can provide a private source walkthrough during an interview.
 
 ![PhabPhysics practice view](img/practice.png)
 
