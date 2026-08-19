@@ -1,103 +1,107 @@
 # Verification
 
-How correctness is enforced on [PhabPhysics](../README.md).
+PhabPhysics serves content that is randomized at runtime and frequently drafted
+with LLM assistance. Verification is split into automated checks, browser tests,
+independent physics review, and final human approval.
 
-The premise: this is a live site where students are graded on the output, and the
-content is generated — both randomized at runtime and LLM-assisted at authoring
-time. Neither is hand-checkable at scale. So the verification has to be
-deterministic even though the content is not.
+## Fast verification
 
-## `npm run verify` — the gate
+`npm run verify` runs both builds followed by 24 named check groups. The
+current registry contains 3,786 generator registrations, so the default
+100-draw sweep inspects 378,600 generated problems.
 
-One command chains ~25 checks. It must pass before anything ships.
+### Registry and wiring checks
 
+These checks compare the course registry with frontend unit lists, verify that
+each referenced guided-problem id is registered, and confirm unit/day
+consistency. They catch missing registrations and client/backend drift.
+
+### Generator sweep
+
+For each course, unit, day, difficulty, and generator index, the harness checks:
+
+- a finite numeric answer within a broad magnitude band
+- no `undefined`, `NaN`, `Infinity`, `null`, raw template fragments, or
+  object stringification in student-facing text
+- valid optional graphs, energy bars, free-body diagrams, representations, and
+  solution steps
+- successful conversion to an answer-free client object
+
+Failures include the full registry location and run number. The number of draws
+can be increased locally with `GENERATOR_RUNS`.
+
+This is a sanity and contract harness, not a proof that every answer is correct.
+Selected generators also have independent derivation tests, and physics-specific
+checks assert invariants such as energy conservation.
+
+### Content contracts
+
+Unit-specific checks enforce authored constraints and compare selected content
+with committed baselines. AP Physics 1 Tier-3 content uses explicit
+`--require-t3` snapshot gates. Updating a baseline is a separate action so a
+content change is visible in review.
+
+### LaTeX escaping
+
+JavaScript silently removes the backslash in a string such as `'\('`. The
+result is valid JavaScript but broken math markup. The guided-LaTeX check scans
+for this defect before it reaches the browser.
+
+## Browser verification
+
+Puppeteer covers failures that static checks cannot see:
+
+- every guided problem is opened in the production player
+- prediction and exploration state transitions are exercised
+- Algebra Blocks receives regression and completion checks
+- simulation invariants run in the browser
+- posted handouts are measured against their print-page budget
+
+These tests were added because valid data and valid JavaScript can still produce
+an unusable screen or PDF.
+
+## End-to-end path
+
+The end-to-end suite runs against Firebase Auth, Firestore, Functions, Hosting,
+and Storage emulators on a demo project. It performs this workflow:
+
+```text
+teacher signup
+  → class creation
+  → student signup and class join
+  → assigned lesson render
+  → wrong submission, then correct submission
+  → teacher dashboard update
+  → teacher answer-key download
+  → student answer-key denial
 ```
-build smoke test  →  functions tsc  →  wiring checks  →  per-unit content checks
-                                                       →  generator harness
-                                                       →  physics invariants
-```
 
-42 checker scripts in total. They fall into four kinds:
+No production service or data is used.
 
-### Wiring checks
-Structural guarantees about how content is registered — that every guided problem
-id referenced by a day actually exists, that unit/day tables agree with the
-registry, that every course's UI unit list matches its backend registry. These
-catch the "shipped a link to nothing" class of failure.
+## CI jobs
 
-### The LaTeX check
-In a JavaScript string literal, `'\('` silently evaluates to `'('`. The backslash
-vanishes, the math delimiter breaks, nothing throws, and the student sees raw
-markup. `check:guided-latex` fails the build on the whole class.
+| Job | Failure handling | Typical scope |
+|---|---|---|
+| `verify` | Fails the workflow | Build, TypeScript, registry checks, generator sweep, derivations, invariants |
+| `browser` | `continue-on-error` | Render sweeps, tutor regression, simulation checks |
+| `e2e` | Fails the workflow | Full classroom path on Firebase emulators |
 
-This is the template for most of the suite: a bug is not considered fixed until
-the *category* is structurally unable to recur.
+The browser job is reported separately because it downloads Chrome and takes
+longer than the fast gate. Its non-blocking status is explicit rather than
+described as a required check.
 
-### The generator harness
-The core correctness problem. Problems are randomly generated per draw, so there
-is no answer key to diff — the surface under test is the generator.
+## LLM and human review
 
-Every registered generator (unit × day × difficulty × index) runs **100 draws** and
-each output is asserted on:
+The model that drafts physics content does not certify it. A separate model
+re-derives the result from the stated givens and attempts to find a
+counterexample. Review notes record confirmed findings and leave incomplete
+findings pending.
 
-- the numeric answer is finite and lands in a physically sane magnitude band
-- no template artifacts — `undefined`, `NaN`, `Infinity`, `null`, `[object Object]`
-  — appear anywhere in student-facing text
-- optional payloads are well-formed: graph descriptors use known types, energy-bar
-  modes are valid, free-body diagrams and representations parse
-- the client conversion produces a clean object with no answer leakage
+Automated checks remain authoritative only for conditions they can evaluate.
+They cannot decide whether a prompt is pedagogically useful, whether wording is
+ambiguous, or whether an untested derivation is correct. I review changes to
+scoring and curriculum before release.
 
-Draw count is configurable, so a suspect generator can be hammered with 500+ runs
-locally without slowing CI.
-
-### Physics invariants
-Domain assertions that no amount of type checking would catch. Conservation of
-energy is checked across randomized scenarios; the gas-box simulation is checked
-against its own thermodynamic invariants. A generator that produces a numerically
-finite, well-formatted, *physically impossible* problem fails here.
-
-## Rendering is part of the definition of done
-
-Code-level checks repeatedly passed content that was broken on screen — correct
-data, unusable page. So a browser tier exists: Puppeteer sweeps that render every
-guided problem, a tutor-UI regression suite, live simulation invariant runs, and
-the handout print-budget check.
-
-The working rule that came out of this: **nothing is done until it has been
-rendered and looked at.**
-
-## Snapshot baselines
-
-Per-unit content is pinned to committed baselines. Regenerating content diffs
-against the baseline and fails on unexplained drift; changing the baseline is an
-explicit, reviewed act. This is what makes LLM-assisted authoring safe to iterate
-on — a fleet of agents can rewrite a unit, but it cannot quietly change an answer
-that was previously verified.
-
-## CI
-
-| Job | Blocking | Runtime | Scope |
-|---|---|---|---|
-| `verify` | ✅ | fast | Build, `tsc`, wiring, generators, invariants |
-| `browser` | — | ~5 min | Render sweeps, tutor regression, sim invariants |
-| `e2e` | ✅ | ~10 min | Full classroom path on Firebase emulators |
-
-The browser job is intentionally non-blocking: it needs a Chrome download and
-several minutes, and its signal is worth seeing without holding up the fast gate.
-
-The e2e job is blocking and runs the real critical path against emulated
-Auth/Firestore/Storage on a demo project — nothing touches production:
-
-> teacher signs up → creates a class with a course → student joins by code →
-> the assigned day renders → a wrong submission, then a correct one →
-> the teacher dashboard reflects the result →
-> the locked answer key downloads for the teacher **and is denied to the student**
-
-Authorization is asserted, not assumed. The denial case is a test.
-
-## What this buys
-
-Content can be produced far faster than one person could hand-write it, and the
-things that would make that reckless — wrong answers, broken math, dead links,
-content that renders as garbage, authorization holes — are each held by a check
-that runs on every push.
+A small public implementation of the generator-sweep and baseline approach is
+available in
+[`verification-gates`](https://github.com/ahreinhardt/verification-gates).
