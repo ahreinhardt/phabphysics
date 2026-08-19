@@ -52,6 +52,14 @@ An executable extraction of this approach is available in
 includes seeded property sweeps, reusable invariants, and snapshot baselines
 with no runtime dependencies.
 
+Its worked example reproduces an answer-leak defect: a collision summary table
+contains the final speed before the student responds. The
+[`noAnswerLeak` wiring](https://github.com/ahreinhardt/verification-gates/blob/main/examples/physics/gates.js)
+checks every student-visible string and reports both the field path and the seed
+needed to reproduce the failure. The
+[`collisionMomentum` generator](https://github.com/ahreinhardt/verification-gates/blob/main/examples/physics/generators.js)
+keeps the example small enough to inspect directly.
+
 ### Add courses without migrating existing progress
 
 The backend resolves course content through one registry with three entries:
@@ -113,36 +121,23 @@ does not access production.
 
 ## LLM-assisted development
 
-Curriculum drafts and a substantial share of the code were produced with LLM
-assistance — Claude (Opus and Sonnet), GPT-5 via Codex, and Gemini. The project
-log records the model used for each work session. I would rather state that
-plainly than imply otherwise; the part worth describing is the structure that
-makes it safe to do at this scale.
+Curriculum drafts and much of the code were produced with LLM assistance:
+Claude (Opus and Sonnet), GPT-5 via Codex, and Gemini. The project log records
+the model used for each work session.
 
-The governing rule is that the model which drafts a change does not approve it. A
-different model re-derives the result from the stated givens, and is asked to find
-a counterexample rather than to review it. The distinction is not cosmetic:
-"check this" reliably produces agreement, while "find the error, and if you cannot,
-say what you tried" produces something closer to evidence. Using a different model
-family does real work here, because failure modes correlate within a family and
-much less across them.
+For physics content, the model that drafts a change does not approve it. A
+different model re-derives the result from the stated givens and looks for
+counterexamples. Each finding records what was derived and which alternative
+explanations were tested. One logged verdict, shortened here, reads:
 
-Every claimed defect carries a written verdict recording what was re-derived and
-which refutation paths were tried and failed:
+> Confirmed after independent re-derivation. “Representation only shows in
+> review” is false because it renders with the problem; “reading the ledger is
+> the intended skill” conflicts with the prompt and related content.
 
-> CONFIRMED after adversarial re-derivation; every refutation path fails.
-> Attempted refutations: "representation only shows in review" — false (it renders
-> with the problem); "reading the ledger is the intended skill" — contradicted by
-> the given text, the title, and the sibling convention.
-
-Findings whose verification did not finish are recorded as pending rather than
-promoted to confirmed.
-
-That review is separate from the automated checks, and is not trusted like one.
-Static checks handle repeatable conditions such as missing registrations, broken
-math delimiters, answer leakage, and changed snapshots. Independent review handles
-derivations, ambiguity, and pedagogy. I review scoring and curriculum changes
-before release.
+Incomplete reviews remain pending. Automated checks separately handle missing
+registrations, broken math delimiters, answer leakage, and snapshot drift.
+Independent review covers derivations, ambiguity, and pedagogy. I approve
+scoring and curriculum changes before release.
 
 This process has caught incorrect numeric answer keys, a wrong isothermal curve on
 a thermodynamics figure, student figures that displayed the result of the exercise
