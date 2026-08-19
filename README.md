@@ -43,31 +43,10 @@ Two complete courses run from one codebase:
 **Platform** Firebase Hosting · Firebase Auth (Google) + App Check
 **Tooling** Terser · `tsc` · Puppeteer (PDF generation, browser tests) · GitHub Actions
 
-```mermaid
-flowchart LR
-  subgraph Browser
-    A["index.html + app.js<br/><i>practice core</i>"]
-    B["practice-ui.js<br/>course-ui.js<br/><i>wrapper layer</i>"]
-    C["guided player<br/>2D canvas + Three.js"]
-    D["admin.html<br/><i>teacher dashboard</i>"]
-  end
-  subgraph "Cloud Functions (Express, TS)"
-    E["/api/problems<br/>/api/submit<br/>/api/progress"]
-    F["/api/classes<br/>/api/auth<br/>/api/handouts"]
-    G["problems/index.ts<br/><i>course registry</i>"]
-  end
-  subgraph Storage
-    H[("Firestore<br/>classes · progress<br/>problemInstances")]
-    I[("Cloud Storage<br/>locked-handouts")]
-  end
-  A --> B --> E
-  C --> E
-  D --> F
-  E --> G
-  E --> H
-  F --> H
-  F --> I
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/architecture-dark.svg">
+  <img alt="PhabPhysics architecture — browser wrapper layer, Express Cloud Functions, Firestore and Cloud Storage" src="img/architecture-light.svg" width="100%">
+</picture>
 
 Deeper systems detail: **[docs/architecture.md](docs/architecture.md)**
 
