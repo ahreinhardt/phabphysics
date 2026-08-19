@@ -114,21 +114,42 @@ does not access production.
 
 ## LLM-assisted development
 
-LLMs contributed curriculum drafts and code. The project log records the model
-used for each work session. For physics content, the model that drafts a change
-does not approve it: another model re-derives the result from the stated givens
-and is asked to look for a counterexample. Findings are recorded as confirmed or
-left pending when the review is incomplete.
+Curriculum drafts and a substantial share of the code were produced with LLM
+assistance — Claude (Opus and Sonnet), GPT-5 via Codex, and Gemini. The project
+log records the model used for each work session. I would rather state that
+plainly than imply otherwise; the part worth describing is the structure that
+makes it safe to do at this scale.
 
-That review is separate from the automated checks. Static checks handle repeatable
-conditions such as missing registrations, broken math delimiters, answer leakage,
-and changed snapshots. Independent review handles derivations, ambiguity, and
-pedagogy. I review scoring and curriculum changes before release.
+The governing rule is that the model which drafts a change does not approve it. A
+different model re-derives the result from the stated givens, and is asked to find
+a counterexample rather than to review it. The distinction is not cosmetic:
+"check this" reliably produces agreement, while "find the error, and if you cannot,
+say what you tried" produces something closer to evidence. Using a different model
+family does real work here, because failure modes correlate within a family and
+much less across them.
 
-This process has caught incorrect numeric answer keys, student figures that
-displayed the result of the exercise beside them, and mismatches between student
-materials and teacher keys. When a repeatable failure is found, I add a check for
-that failure class rather than relying on the review to remember it next time.
+Every claimed defect carries a written verdict recording what was re-derived and
+which refutation paths were tried and failed:
+
+> CONFIRMED after adversarial re-derivation; every refutation path fails.
+> Attempted refutations: "representation only shows in review" — false (it renders
+> with the problem); "reading the ledger is the intended skill" — contradicted by
+> the given text, the title, and the sibling convention.
+
+Findings whose verification did not finish are recorded as pending rather than
+promoted to confirmed.
+
+That review is separate from the automated checks, and is not trusted like one.
+Static checks handle repeatable conditions such as missing registrations, broken
+math delimiters, answer leakage, and changed snapshots. Independent review handles
+derivations, ambiguity, and pedagogy. I review scoring and curriculum changes
+before release.
+
+This process has caught incorrect numeric answer keys, a wrong isothermal curve on
+a thermodynamics figure, student figures that displayed the result of the exercise
+beside them, and mismatches between student materials and teacher keys. When a
+failure turns out to be repeatable, I add a check for that class rather than
+relying on review to catch it next time.
 
 ## Product views
 
