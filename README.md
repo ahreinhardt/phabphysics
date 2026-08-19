@@ -130,6 +130,65 @@ checkers, and Puppeteer sweeps that render every guided problem in a real browse
 because code-level checks repeatedly passed content that was broken on screen.
 
 `npm run verify` chains ~25 of these and must pass before anything ships.
+The human-judgment half of that process is described in
+[How this was built](#how-this-was-built-adversarial-multi-model-authoring).
+
+---
+
+## How this was built: adversarial multi-model authoring
+
+Most of the curriculum content and a large share of the code were produced with
+LLM assistance — Claude (Opus/Sonnet), GPT-5 via Codex, and Gemini. The project's
+change log stamps every session with the model that did the work, and the count is
+in the hundreds. There is no point pretending otherwise, and it isn't the
+interesting part anyway. The interesting part is the structure that made it safe
+to do at this scale, on a site where a wrong answer reaches a student.
+
+**The governing rule: the model that produces a thing does not get to certify it.**
+
+Authoring and verification are deliberately assigned to *different* models, and
+the verifier is prompted to refute rather than to review. "Check this" reliably
+produces agreement; "find the error, and if you cannot, say what you tried"
+produces something closer to evidence. Cross-model is doing real work here — the
+failure modes of these systems are correlated within a family and much less so
+across them, so a second opinion from the same model that wrote the thing is
+nearly worthless.
+
+Every claimed defect carries a written verdict — what was re-derived, which
+refutation paths were attempted, and which failed. From a unit audit:
+
+> **Verifier:** CONFIRMED after adversarial re-derivation; every refutation path
+> fails. […] Attempted refutations: *"representation only shows in review"* —
+> false (renders with problem); *"reading the ledger is the intended skill"* —
+> contradicted by the given text, the title, and the sibling convention.
+
+Findings that ran out of budget mid-verification are recorded as *awaiting
+adversarial verification*, not quietly promoted to confirmed.
+
+**Two rules the process is built around**, both learned by being burned:
+
+- *Plausibility review is not verification.* A model reading a derivation and
+  finding it reasonable tells you almost nothing. The project standard is blunt
+  about it: **a worked solution is not the same as an independently verified
+  derivation.** Physics gets re-derived from scratch by a second model, not read.
+- *A plan is not a fact.* Plans written by one model get fact-checked against the
+  actual repository before anyone implements them, because confident references to
+  functions and files that do not exist are routine.
+
+**Underneath all of it sits machinery that does not have opinions.** The
+adversarial layer is good at catching physics errors, ambiguity, and bad pedagogy —
+the things no static check can see. It is not a substitute for the deterministic
+gates, and it is not trusted like one. Nothing ships unless `npm run verify` is
+green, every guided problem renders in a real browser, and snapshot baselines
+either match or are explicitly re-approved. Anything touching scoring or
+curriculum gets a human sign-off — mine.
+
+**What it actually caught.** Unit audits run this way surfaced a wrong isothermal
+curve on a thermodynamics graph, boss problems leaking a computed intermediate the
+student was supposed to derive, and a set of handouts whose stated purpose
+contradicted their own teacher guide. None of those are things a type checker or a
+test suite would ever find, and none of them were caught by the model that wrote
+them.
 
 ---
 
